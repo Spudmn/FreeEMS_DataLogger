@@ -1,0 +1,15 @@
+[ProjectManager]
+FrameMax=1
+FrameX=66
+FrameY=66
+FrameCX=960
+FrameCY=750
+OpenFile1=ffconf.h,0,193,183,1161,809,0,189,22,0
+OpenFile2=ProjectWindow
+PrjPos=0,1,579,0,268
+OpenFile3=main.c,0,217,94,1185,718,0,33,0,0
+OpenFile4=OutputWindow
+OutputPos=0,8,516,561,1259
+ActivePRJ=tst850.prj
+[ProjectWindow]
+ProjectWindowDispType=0

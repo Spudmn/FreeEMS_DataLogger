@@ -1,0 +1,127 @@
+/*
+ * SPI.c
+ *
+ *  Created on: 7/01/2012
+ *      Author: aaron
+ */
+
+/*-----------------------------------------------------------------------*/
+/* Transmit bytes to the card (bitbanging)                               */
+/*-----------------------------------------------------------------------*/
+
+static
+void xmit_mmc(const BYTE* buff, /* Data to be sent */
+UINT bc /* Number of bytes to send */
+) {
+	BYTE d;
+
+	do {
+		d = *buff++; /* Get a byte to be sent */
+		if (d & 0x80)
+			DI_H();
+		else
+			DI_L(); /* bit7 */
+		CK_H();
+		CK_L();
+		if (d & 0x40)
+			DI_H();
+		else
+			DI_L(); /* bit6 */
+		CK_H();
+		CK_L();
+		if (d & 0x20)
+			DI_H();
+		else
+			DI_L(); /* bit5 */
+		CK_H();
+		CK_L();
+		if (d & 0x10)
+			DI_H();
+		else
+			DI_L(); /* bit4 */
+		CK_H();
+		CK_L();
+		if (d & 0x08)
+			DI_H();
+		else
+			DI_L(); /* bit3 */
+		CK_H();
+		CK_L();
+		if (d & 0x04)
+			DI_H();
+		else
+			DI_L(); /* bit2 */
+		CK_H();
+		CK_L();
+		if (d & 0x02)
+			DI_H();
+		else
+			DI_L(); /* bit1 */
+		CK_H();
+		CK_L();
+		if (d & 0x01)
+			DI_H();
+		else
+			DI_L(); /* bit0 */
+		CK_H();
+		CK_L();
+	} while (--bc);
+}
+
+/*-----------------------------------------------------------------------*/
+/* Receive bytes from the card (bitbanging)                              */
+/*-----------------------------------------------------------------------*/
+
+static
+void rcvr_mmc(BYTE *buff, /* Pointer to read buffer */
+UINT bc /* Number of bytes to receive */
+) {
+	BYTE r;
+
+	DI_H(); /* Send 0xFF */
+
+	do {
+		r = 0;
+		if (DO)
+			r++; /* bit7 */
+		CK_H();
+		CK_L();
+		r <<= 1;
+		if (DO)
+			r++; /* bit6 */
+		CK_H();
+		CK_L();
+		r <<= 1;
+		if (DO)
+			r++; /* bit5 */
+		CK_H();
+		CK_L();
+		r <<= 1;
+		if (DO)
+			r++; /* bit4 */
+		CK_H();
+		CK_L();
+		r <<= 1;
+		if (DO)
+			r++; /* bit3 */
+		CK_H();
+		CK_L();
+		r <<= 1;
+		if (DO)
+			r++; /* bit2 */
+		CK_H();
+		CK_L();
+		r <<= 1;
+		if (DO)
+			r++; /* bit1 */
+		CK_H();
+		CK_L();
+		r <<= 1;
+		if (DO)
+			r++; /* bit0 */
+		CK_H();
+		CK_L();
+		*buff++ = r; /* Store a received byte */
+	} while (--bc);
+}
+

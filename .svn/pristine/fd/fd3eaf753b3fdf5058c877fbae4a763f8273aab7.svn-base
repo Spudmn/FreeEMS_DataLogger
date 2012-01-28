@@ -1,0 +1,12 @@
+src/diskio.d: ../src/diskio.c ../src/Global.h ../src/diskio.h \
+ ../src/integer.h ../src/ff.h ../src/ffconf.h
+
+../src/Global.h:
+
+../src/diskio.h:
+
+../src/integer.h:
+
+../src/ff.h:
+
+../src/ffconf.h:

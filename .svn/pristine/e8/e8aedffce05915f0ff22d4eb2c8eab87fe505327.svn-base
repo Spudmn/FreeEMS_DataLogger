@@ -1,0 +1,19 @@
+/*
+ * Global.h
+ *
+ *  Created on: 22/12/2011
+ *      Author: Aaron.Keith
+ */
+
+#ifndef GLOBAL_H_
+#define GLOBAL_H_
+
+#define FALSE
+#define TRUE
+
+#define HANDLE INT
+
+#define LONGLONG  long int
+
+
+#endif /* GLOBAL_H_ */
