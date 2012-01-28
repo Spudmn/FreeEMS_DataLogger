@@ -52,7 +52,7 @@ BYTE count /* Sector count (1..128) */
 ) {
 	FILE *fp;
 
-	sector = (sector * 512);
+	//sector = (sector * 512);
 
 	if ((fp = fopen("./Disk_Image/virtualfs", "rb+")) == NULL) {
 		puts("Cannot open the file");

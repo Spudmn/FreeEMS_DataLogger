@@ -71,18 +71,18 @@ int main (void)
 	rc = f_close(&fil);
 	if (rc) die(rc);
 
-//	printf("\nCreate a new file (hello.txt).\n");
-//	rc = f_open(&fil, "Hello.TXT", FA_WRITE | FA_CREATE_ALWAYS);
-//	if (rc) die(rc);
-//
-//	printf("\nWrite a text data. (Hello world!)\n");
-//	rc = f_write(&fil, "Hello world!\r\n", 14, &bw);
-//	if (rc) die(rc);
-//	printf("%u bytes written.\n", bw);
-//
-//	printf("\nClose the file.\n");
-//	rc = f_close(&fil);
-//	if (rc) die(rc);
+	printf("\nCreate a new file (hello.txt).\n");
+	rc = f_open(&fil, "Hello.TXT", FA_WRITE | FA_CREATE_ALWAYS);
+	if (rc) die(rc);
+
+	printf("\nWrite a text data. (Hello world!)\n");
+	rc = f_write(&fil, "Hello world!\r\n", 14, &bw);
+	if (rc) die(rc);
+	printf("%u bytes written.\n", bw);
+
+	printf("\nClose the file.\n");
+	rc = f_close(&fil);
+	if (rc) die(rc);
 
 	printf("\nOpen root directory.\n");
 	rc = f_opendir(&dir, "");
