@@ -28,7 +28,7 @@
 static void RunAllTests(void)
 {
 
-	RUN_TEST_GROUP(MissingTeeth);
+	RUN_TEST_GROUP(diskio);
 
 
 }
