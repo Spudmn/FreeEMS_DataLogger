@@ -27,9 +27,9 @@
 /* START: TEST_GROUP_RUNNER */
 #include "unity//unity_fixture.h"
 
-TEST_GROUP_RUNNER(MissingTeeth)
+TEST_GROUP_RUNNER(diskio)
 {
-        RUN_TEST_CASE(MissingTeeth,ISR);
+        RUN_TEST_CASE(diskio,CMD);
 
 }
 

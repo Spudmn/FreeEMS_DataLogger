@@ -30,15 +30,15 @@
 
 
 /* START: testGroup */
-TEST_GROUP(MissingTeeth);
+TEST_GROUP(diskio);
 
 
-TEST_SETUP(MissingTeeth)
+TEST_SETUP(diskio)
 {
 
 }
 
-TEST_TEAR_DOWN(MissingTeeth)
+TEST_TEAR_DOWN(diskio)
 {
 
 }
@@ -50,7 +50,7 @@ TEST_TEAR_DOWN(MissingTeeth)
 
 
 
-TEST(MissingTeeth, ISR)
+TEST(diskio, CMD)
 {
 
 
