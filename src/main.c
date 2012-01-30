@@ -84,6 +84,14 @@ int main (void)
 	rc = f_close(&fil);
 	if (rc) die(rc);
 
+	printf("\nCreate New Dir.\n");
+	rc =f_mkdir ("NewDir");
+	//if (rc) die(rc);FR_EXIST
+
+	printf("\nCD into New Dir.\n");
+	rc =f_chdir("NewDir");
+	if (rc) die(rc);
+
 	printf("\nOpen root directory.\n");
 	rc = f_opendir(&dir, "");
 	if (rc) die(rc);
