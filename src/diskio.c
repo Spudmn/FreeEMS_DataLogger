@@ -117,7 +117,7 @@ return 1;
 /*-----------------------------------------------------------------------*/
 
 static
-void deselect (void)
+void deselect_card (void)
 {
 	CS_HIGH();
 	rcvr_spi();	/* Dummy clock (force DO hi-z for multiple slave SPI) */
@@ -130,13 +130,13 @@ void deselect (void)
 /*-----------------------------------------------------------------------*/
 
 static
-int select (void)	/* 1:Successful, 0:Timeout */
+int select_card (void)	/* 1:Successful, 0:Timeout */
 {
 	CS_LOW();
 	rcvr_spi();	/* Dummy clock (force DO enabled) */
 
 	if (wait_ready()) return 1;	/* OK */
-	deselect();
+	deselect_card();
 	return 0;	/* Timeout */
 }
 
@@ -269,8 +269,8 @@ BYTE send_cmd (		/* Returns R1 resp (bit7==1:Send failed) */
 	}
 
 	/* Select the card and wait for ready */
-	deselect();
-	if (!select()) return 0xFF;
+	deselect_card();
+	if (!select_card()) return 0xFF;
 
 	/* Send command packet */
 	xmit_spi(0x40 | cmd);				/* Start + Command index */
@@ -344,7 +344,7 @@ DSTATUS disk_initialize (
 		}
 	}
 	CardType = ty;
-	deselect();
+	deselect_card();
 
 	if (ty) {			/* Initialization succeded */
 		Stat &= ~STA_NOINIT;		/* Clear STA_NOINIT */
@@ -402,7 +402,7 @@ DRESULT disk_read (
 			send_cmd(CMD12, 0);				/* STOP_TRANSMISSION */
 		}
 	}
-	deselect();
+	deselect_card();
 
 	return count ? RES_ERROR : RES_OK;
 }
@@ -442,7 +442,7 @@ DRESULT disk_write (
 				count = 1;
 		}
 	}
-	deselect();
+	deselect_card();
 
 	return count ? RES_ERROR : RES_OK;
 }
@@ -487,8 +487,8 @@ DRESULT disk_ioctl (
 
 		switch (ctrl) {
 		case CTRL_SYNC :		/* Make sure that no pending write process. Do not remove this or written sector might not left updated. */
-			if (select()) {
-				deselect();
+			if (select_card()) {
+				deselect_card();
 				res = RES_OK;
 			}
 			break;
@@ -570,7 +570,7 @@ DRESULT disk_ioctl (
 			res = RES_PARERR;
 		}
 
-		deselect();
+		deselect_card();
 	}
 
 	return res;
