@@ -77,61 +77,6 @@
 
 
 
-/*---------------------------------------------------------------------------/
-/ Locale and Namespace Configurations
-/----------------------------------------------------------------------------*/
-
-#define _CODE_PAGE	437
-/* The _CODE_PAGE specifies the OEM code page to be used on the target system.
-/  Incorrect setting of the code page can cause a file open failure.
-/
-/   932  - Japanese Shift-JIS (DBCS, OEM, Windows)
-/   936  - Simplified Chinese GBK (DBCS, OEM, Windows)
-/   949  - Korean (DBCS, OEM, Windows)
-/   950  - Traditional Chinese Big5 (DBCS, OEM, Windows)
-/   1250 - Central Europe (Windows)
-/   1251 - Cyrillic (Windows)
-/   1252 - Latin 1 (Windows)
-/   1253 - Greek (Windows)
-/   1254 - Turkish (Windows)
-/   1255 - Hebrew (Windows)
-/   1256 - Arabic (Windows)
-/   1257 - Baltic (Windows)
-/   1258 - Vietnam (OEM, Windows)
-/   437  - U.S. (OEM)
-/   720  - Arabic (OEM)
-/   737  - Greek (OEM)
-/   775  - Baltic (OEM)
-/   850  - Multilingual Latin 1 (OEM)
-/   858  - Multilingual Latin 1 + Euro (OEM)
-/   852  - Latin 2 (OEM)
-/   855  - Cyrillic (OEM)
-/   866  - Russian (OEM)
-/   857  - Turkish (OEM)
-/   862  - Hebrew (OEM)
-/   874  - Thai (OEM, Windows)
-/	1    - ASCII only (Valid for non LFN cfg.)
-*/
-
-
-#define	_USE_LFN	0	/* 0 to 3 */
-#define	_MAX_LFN	255		/* Maximum LFN length to handle (12 to 255) */
-/* The _USE_LFN option switches the LFN support.
-/
-/   0: Disable LFN feature. _MAX_LFN and _LFN_UNICODE have no effect.
-/   1: Enable LFN with static working buffer on the BSS. Always NOT reentrant.
-/   2: Enable LFN with dynamic working buffer on the STACK.
-/   3: Enable LFN with dynamic working buffer on the HEAP.
-/
-/  The LFN working buffer occupies (_MAX_LFN + 1) * 2 bytes. To enable LFN,
-/  Unicode handling functions ff_convert() and ff_wtoupper() must be added
-/  to the project. When enable to use heap, memory control functions
-/  ff_memalloc() and ff_memfree() must be added to the project. */
-
-
-#define	_LFN_UNICODE	0	/* 0:ANSI/OEM or 1:Unicode */
-/* To switch the character code set on FatFs API to Unicode,
-/  enable LFN feature and set _LFN_UNICODE to 1. */
 
 
 #define _FS_RPATH		1	/* 0 to 2 */
