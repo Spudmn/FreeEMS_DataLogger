@@ -46,6 +46,7 @@ UINT bc /* Number of bytes to send */
 
 }
 
+
 void vfs_disk_write(const BYTE *buff, /* Pointer to the data to be written */
 DWORD sector, /* Start sector number (LBA) */
 BYTE count /* Sector count (1..128) */
@@ -72,17 +73,18 @@ DWORD sector, /* Start sector number (LBA) */
 BYTE count /* Sector count (1..128) */
 ) {
 
+	unsigned int temp;
 	FILE *fp;
 
 	//sector = (sector * 512) ;
 
-	if ((fp = fopen("./Disk_Image/virtualfs", "r")) == NULL) {
+	if ((fp = fopen("./Disk_Image/virtualfs", "rb")) == NULL) {
 		puts("Cannot open the file");
 		return;
 	}
 
-	fseek(fp, sector, SEEK_SET);
-	fread(buff, 512, count, fp);
+	temp = fseek(fp, sector, SEEK_SET);
+	temp = fread(buff, 512, count, fp);
 	count = 0;
 
 	fclose(fp);
