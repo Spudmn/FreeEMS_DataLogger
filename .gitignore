@@ -1,6 +1,7 @@
 # Build Dirs
 Linux/
 UnitTest/
+MinGW/
 .svn/
 
 

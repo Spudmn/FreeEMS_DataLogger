@@ -1869,12 +1869,7 @@ FRESULT chk_mounted (	/* FR_OK(0): successful, !=0: any error occurred */
 		if (pi) pi--;
 		tbl = &fs->win[MBR_Table + pi * SZ_PTE];/* Partition table */
 		if (tbl[4]) {						/* Is the partition existing? */
-			printf("Num 8 %x\n",tbl[8]);
-			printf("Num 9 %x\n",tbl[9]);
-			printf("Num 10 %x\n",tbl[10]);
-			printf("Num 11 %x\n",tbl[11]);
 			bsect = LD_DWORD(&tbl[8]);		/* Partition offset in LBA */
-			printf("bsect = %x\n",bsect);
 			fmt = check_fs(fs, bsect);		/* Check the partition */
 		}
 	}
