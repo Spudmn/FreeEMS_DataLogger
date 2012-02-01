@@ -199,8 +199,8 @@ typedef struct {
 
 #else			/* Code page is SBCS */
 
-//#define IsDBCS1(c)	0
-//#define IsDBCS2(c)	0
+#define IsDBCS1(c)	0
+#define IsDBCS2(c)	0
 
 #endif /* _DF1S */
 
