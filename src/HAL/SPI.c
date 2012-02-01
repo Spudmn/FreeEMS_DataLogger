@@ -25,6 +25,8 @@
 
 #include "../Global.h"
 #include <stdio.h>
+#include <errno.h>
+#include <string.h>
 
 static volatile BYTE Timer1, Timer2; /* 100Hz decrement timer */
 
@@ -57,6 +59,7 @@ BYTE count /* Sector count (1..128) */
 
 	if ((fp = fopen("./Disk_Image/virtualfs", "rb+")) == NULL) {
 		puts("Cannot open the file");
+		puts(strerror(errno));
 		return;
 	}
 
@@ -80,6 +83,7 @@ BYTE count /* Sector count (1..128) */
 
 	if ((fp = fopen("./Disk_Image/virtualfs", "rb")) == NULL) {
 		puts("Cannot open the file");
+		puts(strerror(errno));
 		return;
 	}
 
