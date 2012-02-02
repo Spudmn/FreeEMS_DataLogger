@@ -33,7 +33,25 @@ void die (		/* Stop with dying message */
 )
 {
 	printf("Failed with rc=%u.\n", rc);
-	for (;;) ;
+
+	switch (rc)
+	{
+
+	case FR_EXIST:
+		printf("File Already Exists\n");
+
+	break;
+
+	case FR_NO_FILE :
+		printf("File Not Found\n");
+
+	break;
+
+	default:
+
+		break;
+	}
+
 }
 
 
@@ -50,6 +68,7 @@ int main (void)
 	FILINFO fno;			/* File information object */
 	UINT bw, br, i;
 	BYTE buff[128];
+
 
 
 	f_mount(0, &fatfs);		/* Register volume work area (never fails) */
@@ -86,11 +105,33 @@ int main (void)
 
 	printf("\nCreate New Dir.\n");
 	rc =f_mkdir ("NewDir");
-	//if (rc) die(rc);FR_EXIST
+	if (rc) die(rc);
 
 	printf("\nCD into New Dir.\n");
 	rc =f_chdir("NewDir");
 	if (rc) die(rc);
+
+	printf("\nDelete File (0001234.LOG).\n");
+	rc = f_unlink("0001234.LOG");
+	if (rc) die(rc);
+
+
+	printf("\nCreate a new file (0001234.LOG).\n");
+	rc = f_open(&fil, "0001234.LOG", FA_WRITE | FA_CREATE_ALWAYS);
+	if (rc) die(rc);
+
+	printf("\nWrite a binary data.\n");
+
+
+	rc = f_write(&fil, "Hello world!\r\n", 14, &bw);
+	if (rc) die(rc);
+	printf("%u bytes written.\n", bw);
+
+	printf("\nClose the file.\n");
+	rc = f_close(&fil);
+	if (rc) die(rc);
+
+
 
 	printf("\nOpen root directory.\n");
 	rc = f_opendir(&dir, "");
