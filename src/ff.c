@@ -307,33 +307,11 @@ static
 BYTE CurrVol;			/* Current drive */
 #endif
 
-#if _FS_SHARE
-static
-FILESEM	Files[_FS_SHARE];	/* File lock semaphores */
-#endif
 
 #if _USE_LFN == 0			/* No LFN feature */
 #define	DEF_NAMEBUF			BYTE sfn[12]
 #define INIT_BUF(dobj)		(dobj).fn = sfn
 #define	FREE_BUF()
-
-#elif _USE_LFN == 1			/* LFN feature with static working buffer */
-static WCHAR LfnBuf[_MAX_LFN+1];
-#define	DEF_NAMEBUF			BYTE sfn[12]
-#define INIT_BUF(dobj)		{ (dobj).fn = sfn; (dobj).lfn = LfnBuf; }
-#define	FREE_BUF()
-
-#elif _USE_LFN == 2 		/* LFN feature with dynamic working buffer on the stack */
-#define	DEF_NAMEBUF			BYTE sfn[12]; WCHAR lbuf[_MAX_LFN+1]
-#define INIT_BUF(dobj)		{ (dobj).fn = sfn; (dobj).lfn = lbuf; }
-#define	FREE_BUF()
-
-#elif _USE_LFN == 3 		/* LFN feature with dynamic working buffer on the heap */
-#define	DEF_NAMEBUF			BYTE sfn[12]; WCHAR *lfn
-#define INIT_BUF(dobj)		{ lfn = ff_memalloc((_MAX_LFN + 1) * 2); \
-							  if (!lfn) LEAVE_FF((dobj).fs, FR_NOT_ENOUGH_CORE); \
-							  (dobj).lfn = lfn;	(dobj).fn = sfn; }
-#define	FREE_BUF()			ff_memfree(lfn)
 
 #else
 #error Wrong LFN configuration.
@@ -395,149 +373,6 @@ int chk_chr (const char* str, int chr) {
 	while (*str && *str != chr) str++;
 	return *str;
 }
-
-
-
-/*-----------------------------------------------------------------------*/
-/* Request/Release grant to access the volume                            */
-/*-----------------------------------------------------------------------*/
-#if _FS_REENTRANT
-
-static
-int lock_fs (
-	FATFS *fs		/* File system object */
-)
-{
-	return ff_req_grant(fs->sobj);
-}
-
-
-static
-void unlock_fs (
-	FATFS *fs,		/* File system object */
-	FRESULT res		/* Result code to be returned */
-)
-{
-	if (res != FR_NOT_ENABLED &&
-		res != FR_INVALID_DRIVE &&
-		res != FR_INVALID_OBJECT &&
-		res != FR_TIMEOUT) {
-		ff_rel_grant(fs->sobj);
-	}
-}
-#endif
-
-
-
-/*-----------------------------------------------------------------------*/
-/* File shareing control functions                                       */
-/*-----------------------------------------------------------------------*/
-#if _FS_SHARE
-
-static
-FRESULT chk_lock (	/* Check if the file can be accessed */
-	DIR* dj,		/* Directory object pointing the file to be checked */
-	int acc			/* Desired access (0:Read, 1:Write, 2:Delete/Rename) */
-)
-{
-	UINT i, be;
-
-	/* Search file semaphore table */
-	for (i = be = 0; i < _FS_SHARE; i++) {
-		if (Files[i].fs) {	/* Existing entry */
-			if (Files[i].fs == dj->fs &&	 	/* Check if the file matched with an open file */
-				Files[i].clu == dj->sclust &&
-				Files[i].idx == dj->index) break;
-		} else {			/* Blank entry */
-			be++;
-		}
-	}
-	if (i == _FS_SHARE)	/* The file is not opened */
-		return (be || acc == 2) ? FR_OK : FR_TOO_MANY_OPEN_FILES;	/* Is there a blank entry for new file? */
-
-	/* The file has been opened. Reject any open against writing file and all write mode open */
-	return (acc || Files[i].ctr == 0x100) ? FR_LOCKED : FR_OK;
-}
-
-
-static
-int enq_lock (void)	/* Check if an entry is available for a new file */
-{
-	UINT i;
-
-	for (i = 0; i < _FS_SHARE && Files[i].fs; i++) ;
-	return (i == _FS_SHARE) ? 0 : 1;
-}
-
-
-static
-UINT inc_lock (	/* Increment file open counter and returns its index (0:int error) */
-	DIR* dj,	/* Directory object pointing the file to register or increment */
-	int acc		/* Desired access mode (0:Read, !0:Write) */
-)
-{
-	UINT i;
-
-
-	for (i = 0; i < _FS_SHARE; i++) {	/* Find the file */
-		if (Files[i].fs == dj->fs &&
-			Files[i].clu == dj->sclust &&
-			Files[i].idx == dj->index) break;
-	}
-
-	if (i == _FS_SHARE) {				/* Not opened. Register it as new. */
-		for (i = 0; i < _FS_SHARE && Files[i].fs; i++) ;
-		if (i == _FS_SHARE) return 0;	/* No space to register (int err) */
-		Files[i].fs = dj->fs;
-		Files[i].clu = dj->sclust;
-		Files[i].idx = dj->index;
-		Files[i].ctr = 0;
-	}
-
-	if (acc && Files[i].ctr) return 0;	/* Access violation (int err) */
-
-	Files[i].ctr = acc ? 0x100 : Files[i].ctr + 1;	/* Set semaphore value */
-
-	return i + 1;
-}
-
-
-static
-FRESULT dec_lock (	/* Decrement file open counter */
-	UINT i			/* Semaphore index */
-)
-{
-	WORD n;
-	FRESULT res;
-
-
-	if (--i < _FS_SHARE) {
-		n = Files[i].ctr;
-		if (n == 0x100) n = 0;
-		if (n) n--;
-		Files[i].ctr = n;
-		if (!n) Files[i].fs = 0;
-		res = FR_OK;
-	} else {
-		res = FR_INT_ERR;
-	}
-	return res;
-}
-
-
-static
-void clear_lock (	/* Clear lock entries of the volume */
-	FATFS *fs
-)
-{
-	UINT i;
-
-	for (i = 0; i < _FS_SHARE; i++) {
-		if (Files[i].fs == fs) Files[i].fs = 0;
-	}
-}
-#endif
-
 
 
 /*-----------------------------------------------------------------------*/
@@ -1003,178 +838,6 @@ FRESULT dir_next (	/* FR_OK:Succeeded, FR_NO_FILE:End of table, FR_DENIED:EOT an
 
 
 /*-----------------------------------------------------------------------*/
-/* LFN handling - Test/Pick/Fit an LFN segment from/to directory entry   */
-/*-----------------------------------------------------------------------*/
-#if _USE_LFN
-static
-const BYTE LfnOfs[] = {1,3,5,7,9,14,16,18,20,22,24,28,30};	/* Offset of LFN chars in the directory entry */
-
-
-static
-int cmp_lfn (			/* 1:Matched, 0:Not matched */
-	WCHAR *lfnbuf,		/* Pointer to the LFN to be compared */
-	BYTE *dir			/* Pointer to the directory entry containing a part of LFN */
-)
-{
-	UINT i, s;
-	WCHAR wc, uc;
-
-
-	i = ((dir[LDIR_Ord] & ~LLE) - 1) * 13;	/* Get offset in the LFN buffer */
-	s = 0; wc = 1;
-	do {
-		uc = LD_WORD(dir+LfnOfs[s]);	/* Pick an LFN character from the entry */
-		if (wc) {	/* Last char has not been processed */
-			wc = ff_wtoupper(uc);		/* Convert it to upper case */
-			if (i >= _MAX_LFN || wc != ff_wtoupper(lfnbuf[i++]))	/* Compare it */
-				return 0;				/* Not matched */
-		} else {
-			if (uc != 0xFFFF) return 0;	/* Check filler */
-		}
-	} while (++s < 13);				/* Repeat until all chars in the entry are checked */
-
-	if ((dir[LDIR_Ord] & LLE) && wc && lfnbuf[i])	/* Last segment matched but different length */
-		return 0;
-
-	return 1;						/* The part of LFN matched */
-}
-
-
-
-static
-int pick_lfn (			/* 1:Succeeded, 0:Buffer overflow */
-	WCHAR *lfnbuf,		/* Pointer to the Unicode-LFN buffer */
-	BYTE *dir			/* Pointer to the directory entry */
-)
-{
-	UINT i, s;
-	WCHAR wc, uc;
-
-
-	i = ((dir[LDIR_Ord] & 0x3F) - 1) * 13;	/* Offset in the LFN buffer */
-
-	s = 0; wc = 1;
-	do {
-		uc = LD_WORD(dir+LfnOfs[s]);		/* Pick an LFN character from the entry */
-		if (wc) {	/* Last char has not been processed */
-			if (i >= _MAX_LFN) return 0;	/* Buffer overflow? */
-			lfnbuf[i++] = wc = uc;			/* Store it */
-		} else {
-			if (uc != 0xFFFF) return 0;		/* Check filler */
-		}
-	} while (++s < 13);						/* Read all character in the entry */
-
-	if (dir[LDIR_Ord] & LLE) {				/* Put terminator if it is the last LFN part */
-		if (i >= _MAX_LFN) return 0;		/* Buffer overflow? */
-		lfnbuf[i] = 0;
-	}
-
-	return 1;
-}
-
-
-#if !_FS_READONLY
-static
-void fit_lfn (
-	const WCHAR *lfnbuf,	/* Pointer to the LFN buffer */
-	BYTE *dir,				/* Pointer to the directory entry */
-	BYTE ord,				/* LFN order (1-20) */
-	BYTE sum				/* SFN sum */
-)
-{
-	UINT i, s;
-	WCHAR wc;
-
-
-	dir[LDIR_Chksum] = sum;			/* Set check sum */
-	dir[LDIR_Attr] = AM_LFN;		/* Set attribute. LFN entry */
-	dir[LDIR_Type] = 0;
-	ST_WORD(dir+LDIR_FstClusLO, 0);
-
-	i = (ord - 1) * 13;				/* Get offset in the LFN buffer */
-	s = wc = 0;
-	do {
-		if (wc != 0xFFFF) wc = lfnbuf[i++];	/* Get an effective char */
-		ST_WORD(dir+LfnOfs[s], wc);	/* Put it */
-		if (!wc) wc = 0xFFFF;		/* Padding chars following last char */
-	} while (++s < 13);
-	if (wc == 0xFFFF || !lfnbuf[i]) ord |= LLE;	/* Bottom LFN part is the start of LFN sequence */
-	dir[LDIR_Ord] = ord;			/* Set the LFN order */
-}
-
-#endif
-#endif
-
-
-
-/*-----------------------------------------------------------------------*/
-/* Create numbered name                                                  */
-/*-----------------------------------------------------------------------*/
-#if _USE_LFN
-void gen_numname (
-	BYTE *dst,			/* Pointer to generated SFN */
-	const BYTE *src,	/* Pointer to source SFN to be modified */
-	const WCHAR *lfn,	/* Pointer to LFN */
-	WORD seq			/* Sequence number */
-)
-{
-	BYTE ns[8], c;
-	UINT i, j;
-
-
-	mem_cpy(dst, src, 11);
-
-	if (seq > 5) {	/* On many collisions, generate a hash number instead of sequential number */
-		do seq = (seq >> 1) + (seq << 15) + (WORD)*lfn++; while (*lfn);
-	}
-
-	/* itoa (hexdecimal) */
-	i = 7;
-	do {
-		c = (seq % 16) + '0';
-		if (c > '9') c += 7;
-		ns[i--] = c;
-		seq /= 16;
-	} while (seq);
-	ns[i] = '~';
-
-	/* Append the number */
-	for (j = 0; j < i && dst[j] != ' '; j++) {
-		if (IsDBCS1(dst[j])) {
-			if (j == i - 1) break;
-			j++;
-		}
-	}
-	do {
-		dst[j++] = (i < 8) ? ns[i++] : ' ';
-	} while (j < 8);
-}
-#endif
-
-
-
-
-/*-----------------------------------------------------------------------*/
-/* Calculate sum of an SFN                                               */
-/*-----------------------------------------------------------------------*/
-#if _USE_LFN
-static
-BYTE sum_sfn (
-	const BYTE *dir		/* Ptr to directory entry */
-)
-{
-	BYTE sum = 0;
-	UINT n = 11;
-
-	do sum = (sum >> 1) + (sum << 7) + *dir++; while (--n);
-	return sum;
-}
-#endif
-
-
-
-
-/*-----------------------------------------------------------------------*/
 /* Directory handling - Find an object in the directory                  */
 /*-----------------------------------------------------------------------*/
 
@@ -1185,47 +848,22 @@ FRESULT dir_find (
 {
 	FRESULT res;
 	BYTE c, *dir;
-#if _USE_LFN
-	BYTE a, ord, sum;
-#endif
+
 
 	res = dir_sdi(dj, 0);			/* Rewind directory object */
 	if (res != FR_OK) return res;
 
-#if _USE_LFN
-	ord = sum = 0xFF;
-#endif
+
 	do {
 		res = move_window(dj->fs, dj->sect);
 		if (res != FR_OK) break;
 		dir = dj->dir;					/* Ptr to the directory entry of current index */
 		c = dir[DIR_Name];
 		if (c == 0) { res = FR_NO_FILE; break; }	/* Reached to end of table */
-#if _USE_LFN	/* LFN configuration */
-		a = dir[DIR_Attr] & AM_MASK;
-		if (c == DDE || ((a & AM_VOL) && a != AM_LFN)) {	/* An entry without valid data */
-			ord = 0xFF;
-		} else {
-			if (a == AM_LFN) {			/* An LFN entry is found */
-				if (dj->lfn) {
-					if (c & LLE) {		/* Is it start of LFN sequence? */
-						sum = dir[LDIR_Chksum];
-						c &= ~LLE; ord = c;	/* LFN start order */
-						dj->lfn_idx = dj->index;
-					}
-					/* Check validity of the LFN entry and compare it with given name */
-					ord = (c == ord && sum == dir[LDIR_Chksum] && cmp_lfn(dj->lfn, dir)) ? ord - 1 : 0xFF;
-				}
-			} else {					/* An SFN entry is found */
-				if (!ord && sum == sum_sfn(dir)) break;	/* LFN matched? */
-				ord = 0xFF; dj->lfn_idx = 0xFFFF;	/* Reset LFN sequence */
-				if (!(dj->fn[NS] & NS_LOSS) && !mem_cmp(dir, dj->fn, 11)) break;	/* SFN matched? */
-			}
-		}
-#else		/* Non LFN configuration */
+
 		if (!(dir[DIR_Attr] & AM_VOL) && !mem_cmp(dir, dj->fn, 11)) /* Is it a valid entry? */
 			break;
-#endif
+
 		res = dir_next(dj, 0);		/* Next entry */
 	} while (res == FR_OK);
 
@@ -1246,9 +884,6 @@ FRESULT dir_read (
 {
 	FRESULT res;
 	BYTE c, *dir;
-#if _USE_LFN
-	BYTE a, ord = 0xFF, sum = 0xFF;
-#endif
 
 	res = FR_NO_FILE;
 	while (dj->sect) {
@@ -1257,29 +892,10 @@ FRESULT dir_read (
 		dir = dj->dir;					/* Ptr to the directory entry of current index */
 		c = dir[DIR_Name];
 		if (c == 0) { res = FR_NO_FILE; break; }	/* Reached to end of table */
-#if _USE_LFN	/* LFN configuration */
-		a = dir[DIR_Attr] & AM_MASK;
-		if (c == DDE || (!_FS_RPATH && c == '.') || ((a & AM_VOL) && a != AM_LFN)) {	/* An entry without valid data */
-			ord = 0xFF;
-		} else {
-			if (a == AM_LFN) {			/* An LFN entry is found */
-				if (c & LLE) {			/* Is it start of LFN sequence? */
-					sum = dir[LDIR_Chksum];
-					c &= ~LLE; ord = c;
-					dj->lfn_idx = dj->index;
-				}
-				/* Check LFN validity and capture it */
-				ord = (c == ord && sum == dir[LDIR_Chksum] && pick_lfn(dj->lfn, dir)) ? ord - 1 : 0xFF;
-			} else {					/* An SFN entry is found */
-				if (ord || sum != sum_sfn(dir))	/* Is there a valid LFN? */
-					dj->lfn_idx = 0xFFFF;		/* It has no LFN. */
-				break;
-			}
-		}
-#else		/* Non LFN configuration */
+
 		if (c != DDE && (_FS_RPATH || c != '.') && !(dir[DIR_Attr] & AM_VOL))	/* Is it a valid entry? */
 			break;
-#endif
+
 		res = dir_next(dj, 0);				/* Next entry */
 		if (res != FR_OK) break;
 	}
@@ -1303,70 +919,8 @@ FRESULT dir_register (	/* FR_OK:Successful, FR_DENIED:No free entry or too many 
 {
 	FRESULT res;
 	BYTE c, *dir;
-#if _USE_LFN	/* LFN configuration */
-	WORD n, ne, is;
-	BYTE sn[12], *fn, sum;
-	WCHAR *lfn;
 
-
-	fn = dj->fn; lfn = dj->lfn;
-	mem_cpy(sn, fn, 12);
-
-	if (_FS_RPATH && (sn[NS] & NS_DOT))		/* Cannot create dot entry */
-		return FR_INVALID_NAME;
-
-	if (sn[NS] & NS_LOSS) {			/* When LFN is out of 8.3 format, generate a numbered name */
-		fn[NS] = 0; dj->lfn = 0;			/* Find only SFN */
-		for (n = 1; n < 100; n++) {
-			gen_numname(fn, sn, lfn, n);	/* Generate a numbered name */
-			res = dir_find(dj);				/* Check if the name collides with existing SFN */
-			if (res != FR_OK) break;
-		}
-		if (n == 100) return FR_DENIED;		/* Abort if too many collisions */
-		if (res != FR_NO_FILE) return res;	/* Abort if the result is other than 'not collided' */
-		fn[NS] = sn[NS]; dj->lfn = lfn;
-	}
-
-	if (sn[NS] & NS_LFN) {			/* When LFN is to be created, reserve an SFN + LFN entries. */
-		for (ne = 0; lfn[ne]; ne++) ;
-		ne = (ne + 25) / 13;
-	} else {						/* Otherwise reserve only an SFN entry. */
-		ne = 1;
-	}
-
-	/* Reserve contiguous entries */
-	res = dir_sdi(dj, 0);
-	if (res != FR_OK) return res;
-	n = is = 0;
-	do {
-		res = move_window(dj->fs, dj->sect);
-		if (res != FR_OK) break;
-		c = *dj->dir;				/* Check the entry status */
-		if (c == DDE || c == 0) {	/* Is it a blank entry? */
-			if (n == 0) is = dj->index;	/* First index of the contiguous entry */
-			if (++n == ne) break;	/* A contiguous entry that required count is found */
-		} else {
-			n = 0;					/* Not a blank entry. Restart to search */
-		}
-		res = dir_next(dj, 1);		/* Next entry with table stretch */
-	} while (res == FR_OK);
-
-	if (res == FR_OK && ne > 1) {	/* Initialize LFN entry if needed */
-		res = dir_sdi(dj, is);
-		if (res == FR_OK) {
-			sum = sum_sfn(dj->fn);	/* Sum of the SFN tied to the LFN */
-			ne--;
-			do {					/* Store LFN entries in bottom first */
-				res = move_window(dj->fs, dj->sect);
-				if (res != FR_OK) break;
-				fit_lfn(dj->lfn, dj->dir, (BYTE)ne, sum);
-				dj->fs->wflag = 1;
-				res = dir_next(dj, 0);	/* Next entry */
-			} while (res == FR_OK && --ne);
-		}
-	}
-
-#else	/* Non LFN configuration */
+	/* Non LFN configuration */
 	res = dir_sdi(dj, 0);
 	if (res == FR_OK) {
 		do {	/* Find a blank entry for the SFN */
@@ -1377,7 +931,7 @@ FRESULT dir_register (	/* FR_OK:Successful, FR_DENIED:No free entry or too many 
 			res = dir_next(dj, 1);			/* Next entry with table stretch */
 		} while (res == FR_OK);
 	}
-#endif
+
 
 	if (res == FR_OK) {		/* Initialize the SFN entry */
 		res = move_window(dj->fs, dj->sect);
@@ -1385,9 +939,7 @@ FRESULT dir_register (	/* FR_OK:Successful, FR_DENIED:No free entry or too many 
 			dir = dj->dir;
 			mem_set(dir, 0, SZ_DIR);	/* Clean the entry */
 			mem_cpy(dir, dj->fn, 11);	/* Put SFN */
-#if _USE_LFN
-			dir[DIR_NTres] = *(dj->fn+NS) & (NS_BODY | NS_EXT);	/* Put NT flag */
-#endif
+
 			dj->fs->wflag = 1;
 		}
 	}
@@ -1409,24 +961,7 @@ FRESULT dir_remove (	/* FR_OK: Successful, FR_DISK_ERR: A disk error */
 )
 {
 	FRESULT res;
-#if _USE_LFN	/* LFN configuration */
-	WORD i;
 
-	i = dj->index;	/* SFN index */
-	res = dir_sdi(dj, (WORD)((dj->lfn_idx == 0xFFFF) ? i : dj->lfn_idx));	/* Goto the SFN or top of the LFN entries */
-	if (res == FR_OK) {
-		do {
-			res = move_window(dj->fs, dj->sect);
-			if (res != FR_OK) break;
-			*dj->dir = DDE;			/* Mark the entry "deleted" */
-			dj->fs->wflag = 1;
-			if (dj->index >= i) break;	/* When reached SFN, all entries of the object has been deleted. */
-			res = dir_next(dj, 0);		/* Next entry */
-		} while (res == FR_OK);
-		if (res == FR_NO_FILE) res = FR_INT_ERR;
-	}
-
-#else			/* Non LFN configuration */
 	res = dir_sdi(dj, dj->index);
 	if (res == FR_OK) {
 		res = move_window(dj->fs, dj->sect);
@@ -1435,7 +970,7 @@ FRESULT dir_remove (	/* FR_OK: Successful, FR_DISK_ERR: A disk error */
 			dj->fs->wflag = 1;
 		}
 	}
-#endif
+
 
 	return res;
 }
@@ -1831,9 +1366,6 @@ FRESULT chk_mounted (	/* FR_OK(0): successful, !=0: any error occurred */
 #if _FS_RPATH
 	fs->cdir = 0;			/* Current directory (root dir) */
 #endif
-#if _FS_SHARE				/* Clear file lock semaphores */
-	clear_lock(fs);
-#endif
 
 	return FR_OK;
 }
@@ -1890,20 +1422,11 @@ FRESULT f_mount (
 	rfs = FatFs[vol];			/* Get current fs object */
 
 	if (rfs) {
-#if _FS_SHARE
-		clear_lock(rfs);
-#endif
-#if _FS_REENTRANT				/* Discard sync object of the current volume */
-		if (!ff_del_syncobj(rfs->sobj)) return FR_INT_ERR;
-#endif
 		rfs->fs_type = 0;		/* Clear old fs object */
 	}
 
 	if (fs) {
 		fs->fs_type = 0;		/* Clear new fs object */
-#if _FS_REENTRANT				/* Create sync object for the new volume */
-		if (!ff_cre_syncobj(vol, &fs->sobj)) return FR_INT_ERR;
-#endif
 	}
 	FatFs[vol] = fs;			/* Register new fs object */
 
@@ -1947,10 +1470,6 @@ FRESULT f_open (
 	if (res == FR_OK) {
 		if (!dir)	/* Current dir itself */
 			res = FR_INVALID_NAME;
-#if _FS_SHARE
-		else
-			res = chk_lock(&dj, (mode & ~FA_READ) ? 1 : 0);
-#endif
 	}
 	/* Create or Open a file */
 	if (mode & (FA_CREATE_ALWAYS | FA_OPEN_ALWAYS | FA_CREATE_NEW)) {
@@ -1958,11 +1477,9 @@ FRESULT f_open (
 
 		if (res != FR_OK) {					/* No file, create new */
 			if (res == FR_NO_FILE)			/* There is no file to open, create a new entry */
-#if _FS_SHARE
-				res = enq_lock() ? dir_register(&dj) : FR_TOO_MANY_OPEN_FILES;
-#else
+
 				res = dir_register(&dj);
-#endif
+
 			mode |= FA_CREATE_ALWAYS;		/* File is created */
 			dir = dj.dir;					/* New entry */
 		}
@@ -2007,10 +1524,7 @@ FRESULT f_open (
 			mode |= FA__WRITTEN;
 		fp->dir_sect = dj.fs->winsect;			/* Pointer to the directory entry */
 		fp->dir_ptr = dir;
-#if _FS_SHARE
-		fp->lockid = inc_lock(&dj, (mode & ~FA_READ) ? 1 : 0);
-		if (!fp->lockid) res = FR_INT_ERR;
-#endif
+
 	}
 
 #else				/* R/O configuration */
@@ -2328,19 +1842,6 @@ FRESULT f_close (
 
 #else
 	res = f_sync(fp);		/* Flush cached data */
-#if _FS_SHARE
-	if (res == FR_OK) {		/* Decrement open counter */
-#if _FS_REENTRANT
-		res = validate(fp->fs, fp->id);
-		if (res == FR_OK) {
-			res = dec_lock(fp->lockid);	
-			unlock_fs(fp->fs, FR_OK);
-		}
-#else
-		res = dec_lock(fp->lockid);
-#endif
-	}
-#endif
 	if (res == FR_OK) fp->fs = 0;	/* Discard file object */
 	return res;
 #endif
@@ -3107,9 +2608,6 @@ FRESULT f_rename (
 		res = follow_path(&djo, path_old);		/* Check old object */
 		if (_FS_RPATH && res == FR_OK && (djo.fn[NS] & NS_DOT))
 			res = FR_INVALID_NAME;
-#if _FS_SHARE
-		if (res == FR_OK) res = chk_lock(&djo, 2);
-#endif
 		if (res == FR_OK) {						/* Old object is found */
 			if (!djo.dir) {						/* Is root dir? */
 				res = FR_NO_FILE;
