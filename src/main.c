@@ -58,6 +58,23 @@ void die (		/* Stop with dying message */
 /*-----------------------------------------------------------------------*/
 /* Program Main                                                          */
 /*-----------------------------------------------------------------------*/
+BYTE File_Exists(const TCHAR* path)
+{
+	FRESULT rc;				/* Result code */
+	FILINFO info;
+	rc = f_stat(path,&info);
+	if (rc == FR_OK)
+		{
+		return 0x01;
+		}
+
+	if (rc) {
+		die(rc);
+	}
+
+		return 0x00;
+}
+
 
 int main (void)
 {
@@ -68,6 +85,7 @@ int main (void)
 	FILINFO fno;			/* File information object */
 	UINT bw, br, i;
 	BYTE buff[128];
+
 
 
 
@@ -111,10 +129,17 @@ int main (void)
 	rc =f_chdir("NewDir");
 	if (rc) die(rc);
 
+	if (!File_Exists("NOFILE.LOG"))
+	{
+	printf("\nNOFILE.LOG Was not found. This is not any error.\n");
+	}
+
+	if (File_Exists("0001234.LOG"))
+	{
 	printf("\nDelete File (0001234.LOG).\n");
 	rc = f_unlink("0001234.LOG");
 	if (rc) die(rc);
-
+	}
 
 	printf("\nCreate a new file (0001234.LOG).\n");
 	rc = f_open(&fil, "0001234.LOG", FA_WRITE | FA_CREATE_ALWAYS);
@@ -122,10 +147,18 @@ int main (void)
 
 	printf("\nWrite a binary data.\n");
 
+	for (i = 0; i < 0xFF; i++)
+	{
+		buff[0] = i;
+		rc = f_write(&fil, buff, 1, &bw);
+		if (rc)
+			{
+			die(rc);
+			break;
+			}
+	}
 
-	rc = f_write(&fil, "Hello world!\r\n", 14, &bw);
-	if (rc) die(rc);
-	printf("%u bytes written.\n", bw);
+
 
 	printf("\nClose the file.\n");
 	rc = f_close(&fil);
